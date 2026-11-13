@@ -2,6 +2,8 @@
 
 A drawer for the bits of text you paste again and again. Click to copy.
 
+**[Try it live](https://adrienbalcioglu.github.io/clip-drawer/)**
+
 ## Features
 
 - Click a clip, or press Enter on it, to copy it
