@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clip Drawer</title>
+<style>:root{--bg:#f7f7f5;--panel:#fff;--ink:#1c1c1a;--muted:#6b6b66;--line:#e3e3de;--accent:#3d5afe;--accent-ink:#fff;--good:#1a7f4b;--bad:#b3261e;--warn:#9a6700;--soft:#eef0ff;--radius:10px;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--panel:#1d1d1b;--ink:#ececE6;--muted:#9a9a93;--line:#30302c;--accent:#8c9eff;--accent-ink:#11122b;--good:#5fd39a;--bad:#ff8a80;--warn:#e3b341;--soft:#23264a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:28px 16px 64px}
+header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:24px;margin:0;letter-spacing:-.01em}
+h2{font-size:15px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+p.lead{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.grid{display:grid;gap:16px}
+@media(min-width:820px){.cols-2{grid-template-columns:1fr 1fr}.cols-3{grid-template-columns:repeat(3,1fr)}.side{grid-template-columns:340px 1fr}}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+textarea{min-height:120px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.field{margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.ghost{border-color:transparent;color:var(--muted);padding:4px 8px}
+button:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td input{padding:5px 7px}
+.scroll{overflow-x:auto}
+.stat{font-size:28px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat small{display:block;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:0}
+.muted{color:var(--muted)}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--accent)}
+.out{white-space:pre-wrap;word-wrap:break-word;font-size:14.5px;min-height:120px}
+.out.mono,code{font-family:var(--mono);font-size:13px}
+.note{font-size:13px;color:var(--muted)}
+footer{margin-top:28px;font-size:13px;color:var(--muted)}
+footer a{color:inherit}
+
+.clips{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.clip{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.clip:hover,.clip:focus-visible{border-color:var(--accent)}
+.clip.copied{border-color:var(--good);box-shadow:inset 0 0 0 1px var(--good)}
+.clip h3{margin:0;font-size:15px}
+.clip pre{margin:0;white-space:pre-wrap;word-break:break-word;font:13px/1.45 var(--mono);color:var(--muted);max-height:110px;overflow:hidden}
+.clip .row{justify-content:space-between}
+dialog{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);color:var(--ink);width:min(560px,92vw);padding:18px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <h1>Clip Drawer</h1>
+      <p class="lead">The bits of text you paste again and again: replies, links, snippets. Click one to copy it.</p>
+    </div>
+    <div class="row">
+      <button id="add" class="primary">New clip</button>
+      <button id="export">Export</button>
+      <button id="importBtn">Import</button>
+      <input id="file" type="file" accept="application/json" hidden>
+    </div>
+  </header>
+  <section class="panel">
+    <div class="row">
+      <input id="search" type="search" placeholder="Search clips (press / to focus)" style="flex:1;min-width:200px">
+      <span id="tags" class="row"></span>
+    </div>
+  </section>
+  <div class="clips" id="clips"></div>
+  <p id="empty" class="note" hidden>No clip matches.</p>
+  <p id="toast" class="note" role="status"></p>
+
+  <dialog id="editor">
+    <form method="dialog" id="form">
+      <h2 id="editorTitle">New clip</h2>
+      <div class="field"><label for="fTitle">Title</label><input id="fTitle" required></div>
+      <div class="field"><label for="fText">Text to copy</label><textarea id="fText" required style="min-height:160px"></textarea></div>
+      <div class="field"><label for="fTags">Tags, separated by commas</label><input id="fTags" placeholder="support, links"></div>
+      <div class="row" style="justify-content:space-between">
+        <button type="button" id="del" class="ghost">Delete</button>
+        <span class="row"><button type="button" id="cancel">Cancel</button><button class="primary" value="save">Save</button></span>
+      </div>
+    </form>
+  </dialog>
+  <footer>MIT license · © 2026 Adrien Balcioglu · Runs entirely in your browser: no account, no API key, no server.</footer>
+</main>
+<script>
+const KEY = 'clip-drawer-v1';
+const SAMPLE = [
+  { id: 1, title: 'Meeting link', text: 'https://meet.example.com/my-room', tags: ['links'], used: 0 },
+  { id: 2, title: 'Polite no', text: 'Thanks for thinking of me. I cannot take this on right now, but I would be glad to look at it again next quarter.', tags: ['replies'], used: 0 },
+  { id: 3, title: 'Bug report template', text: 'What I did:\nWhat I expected:\nWhat happened:\nBrowser and version:', tags: ['templates'], used: 0 },
+];
+const $ = (id) => document.getElementById(id);
+let clips = load(), activeTag = '', editing = null;
+function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(s)) return s; } catch {} return structuredClone(SAMPLE); }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(clips)); } catch {} }
+function toast(text) { $('toast').textContent = text; clearTimeout(toast.t); toast.t = setTimeout(() => { $('toast').textContent = ''; }, 2500); }
+
+function render() {
+  const q = $('search').value.trim().toLowerCase();
+  const tags = [...new Set(clips.flatMap((c) => c.tags))].sort();
+  const bar = $('tags'); bar.innerHTML = '';
+  for (const tag of tags) { const b = document.createElement('button'); b.textContent = tag; b.dataset.tag = tag; if (tag === activeTag) b.className = 'primary'; bar.append(b); }
+  const list = $('clips'); list.innerHTML = '';
+  const shown = clips.filter((c) => (!activeTag || c.tags.includes(activeTag)) && (!q || `${c.title} ${c.text} ${c.tags.join(' ')}`.toLowerCase().includes(q))).sort((a, b) => b.used - a.used);
+  for (const c of shown) {
+    const card = document.createElement('article'); card.className = 'clip'; card.tabIndex = 0; card.dataset.id = c.id; card.setAttribute('role', 'button'); card.setAttribute('aria-label', 'Copy ' + c.title);
+    const head = document.createElement('div'); head.className = 'row';
+    const h = document.createElement('h3'); h.textContent = c.title;
+    const edit = document.createElement('button'); edit.className = 'ghost'; edit.textContent = 'Edit'; edit.dataset.edit = c.id;
+    head.append(h, edit);
+    const pre = document.createElement('pre'); pre.textContent = c.text;
+    const foot = document.createElement('div'); foot.className = 'note'; foot.textContent = c.tags.join(' · ');
+    card.append(head, pre, foot); list.append(card);
+  }
+  $('empty').hidden = shown.length > 0;
+}
+
+async function copy(card) {
+  const clip = clips.find((c) => c.id === Number(card.dataset.id));
+  try { await navigator.clipboard.writeText(clip.text); } catch { toast('The clipboard is not available here.'); return; }
+  clip.used++; save(); card.classList.add('copied'); toast(`Copied "${clip.title}".`);
+  setTimeout(render, 700);
+}
+function open(clip) {
+  editing = clip; $('editorTitle').textContent = clip ? 'Edit clip' : 'New clip';
+  $('fTitle').value = clip?.title ?? ''; $('fText').value = clip?.text ?? ''; $('fTags').value = clip?.tags.join(', ') ?? '';
+  $('del').hidden = !clip; $('editor').showModal(); $('fTitle').focus();
+}
+
+$('clips').addEventListener('click', (e) => {
+  const edit = e.target.closest('[data-edit]');
+  if (edit) { open(clips.find((c) => c.id === Number(edit.dataset.edit))); return; }
+  const card = e.target.closest('.clip'); if (card) copy(card);
+});
+$('clips').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('clip')) { e.preventDefault(); copy(e.target); } });
+$('tags').addEventListener('click', (e) => { if (!e.target.dataset.tag) return; activeTag = activeTag === e.target.dataset.tag ? '' : e.target.dataset.tag; render(); });
+$('search').addEventListener('input', render);
+document.addEventListener('keydown', (e) => { if (e.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName) && !$('editor').open) { e.preventDefault(); $('search').focus(); } });
+$('add').addEventListener('click', () => open(null));
+$('cancel').addEventListener('click', () => $('editor').close());
+$('del').addEventListener('click', () => { clips = clips.filter((c) => c !== editing); save(); $('editor').close(); render(); });
+$('form').addEventListener('submit', () => {
+  const data = { title: $('fTitle').value.trim(), text: $('fText').value, tags: $('fTags').value.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean) };
+  if (editing) Object.assign(editing, data); else clips.push({ id: Date.now(), used: 0, ...data });
+  save(); render();
+});
+$('export').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(clips, null, 2)], { type: 'application/json' })); a.download = 'clips.json'; a.click(); URL.revokeObjectURL(a.href); });
+$('importBtn').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  try {
+    const data = JSON.parse(await file.text()); if (!Array.isArray(data)) throw new Error('not a list');
+    const incoming = data.filter((c) => c && typeof c.text === 'string').map((c, i) => ({ id: Date.now() + i, title: String(c.title ?? 'Untitled'), text: c.text, tags: Array.isArray(c.tags) ? c.tags.map(String) : [], used: 0 }));
+    clips.push(...incoming); save(); render(); toast(`${incoming.length} clip${incoming.length === 1 ? '' : 's'} imported.`);
+  } catch { toast('This file is not a clips export.'); }
+});
+render();
+</script>
+</body>
+</html>
